@@ -1,12 +1,17 @@
 import cv2
 import time
+import glob
+import os
 from emailing import send_mail
+from threading import Thread
 
 video = cv2.VideoCapture(0)
 time.sleep(1)
 
 first_frame = None
 status_list = []
+count = 1
+
 
 while True:
     status = 0
@@ -21,6 +26,7 @@ while True:
 
     thresh_frame = cv2.threshold(delta_frame, 30, 255, cv2.THRESH_BINARY)[1]
     dil_frame = cv2.dilate(thresh_frame, None, iterations=2)
+    cv2.imshow("My Video", dil_frame)
 
     contours, check = cv2.findContours(dil_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -32,12 +38,20 @@ while True:
         rectangle = cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
         if rectangle.any():
             status = 1
+            cv2.imwrite(f"images/{count}.png", frame)
+            count += 1
+            all_images = glob.glob("images/*.png")
+            index = int(len(all_images) / 2)
+            image_with_object = all_images[index]
     
     status_list.append(status)
     status_list = status_list[-2:]
 
     if status_list[0] == 1 and status_list[1] == 0:
-            send_mail()
+            
+            email_thread = Thread(target=send_mail, args=(image_with_object, ))
+            email_thread.daemon = True
+            email_thread.start()
     
     cv2.imshow("Video", frame)
 
